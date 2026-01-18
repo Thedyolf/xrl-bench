@@ -11,7 +11,7 @@ from xrlbench.custom_environment.lunarlander.agent import Agent
 
 
 class LunarLander:
-    def __init__(self, env_id='LunarLander-v2',  state_names=None, categorical_states=None):
+    def __init__(self, env_id='LunarLander-v3',  state_names=None, categorical_states=None, render: bool = False, seed=None):
         """
         Class for constructing a Lunar Lander environment.
 
@@ -33,7 +33,9 @@ class LunarLander:
         model : QNetwork
             The local Q-network.
         """
-        self.env = gym.make(env_id)
+        self.render = render           # store as an instance attribute
+        self.seed = seed
+        self.env = gym.make(env_id, render_mode="human" if render else None)
         self.agent = Agent(state_size=self.env.observation_space.shape[0], action_size=self.env.action_space.n)
         self.model = self.agent.qnetwork_local
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

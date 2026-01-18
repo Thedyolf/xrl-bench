@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-import lightgbm
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import shap
@@ -73,6 +73,21 @@ class TabularSHAP:
             self.X_enc[name] = encoder.transform(self.X_enc[name])
         return encoders
 
+    # def _fit_model(self):
+    #     X_train, X_test, y_train, y_test = train_test_split(self.X_enc, self.y, test_size=0.1, random_state=42)
+    #     if len(np.unique(self.y)) > 2:
+    #         task_obj = 'multiclass'
+    #         task_metric = 'multi_logloss'
+    #     else:
+    #         task_obj = 'binary'
+    #         task_metric = 'binary_logloss'
+    #     model = lgb.LGBMClassifier(objective=task_obj, num_leaves=31, learning_rate=0.05, n_estimators=1000)
+    #     model.fit(X_train, y_train, eval_set=[(X_test, y_test)], eval_metric=task_metric,
+    #               early_stopping_rounds=10, categorical_feature=self.categorical_names, verbose=True)
+    #     self.predictions = model.predict(self.X_enc, num_iteration=model.best_iteration_)
+    #     self.report = classification_report(self.y, self.predictions)
+    #     self.explainer = shap.Explainer(model)
+
     def _fit_model(self):
         X_train, X_test, y_train, y_test = train_test_split(self.X_enc, self.y, test_size=0.1, random_state=42)
         if len(np.unique(self.y)) > 2:
@@ -81,9 +96,22 @@ class TabularSHAP:
         else:
             task_obj = 'binary'
             task_metric = 'binary_logloss'
-        model = lightgbm.LGBMClassifier(objective=task_obj, num_leaves=31, learning_rate=0.05, n_estimators=1000)
-        model.fit(X_train, y_train, eval_set=[(X_test, y_test)], eval_metric=task_metric,
-                  early_stopping_rounds=10, categorical_feature=self.categorical_names, verbose=True)
+
+        model = lgb.LGBMClassifier(objective=task_obj, num_leaves=31, learning_rate=0.05, n_estimators=1000)
+
+        from lightgbm import early_stopping, log_evaluation
+
+        model.fit(
+            X_train, y_train,
+            eval_set=[(X_test, y_test)],
+            eval_metric=task_metric,
+            callbacks=[
+                early_stopping(stopping_rounds=10),
+                log_evaluation(period=10)
+            ],
+            categorical_feature=self.categorical_names
+        )
+
         self.predictions = model.predict(self.X_enc, num_iteration=model.best_iteration_)
         self.report = classification_report(self.y, self.predictions)
         self.explainer = shap.Explainer(model)

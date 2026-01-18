@@ -5,7 +5,6 @@ import pandas as pd
 from xrlbench.utils.perturbation import get_normal_perturbed_inputs
 import shap
 
-
 class PGI:
     def __init__(self, environment, **kwargs):
         """
@@ -17,6 +16,30 @@ class PGI:
             The environment used for evaluating XRL methods.
         """
         self.environment = environment
+
+    def _score_true_action(self, x_row: np.ndarray, y_true: int) -> float:
+        """
+        Score/probability assigned by the *policy model* to the true action.
+        Uses sklearn/lightgbm predict_proba when available; falls back to torch agent if needed.
+        """
+        model = self.environment.model
+
+        # sklearn / lightgbm
+        if hasattr(model, "predict_proba"):
+            p = model.predict_proba(x_row.reshape(1, -1))
+            return float(p[0, int(y_true)])
+
+        # sklearn classifier without proba: hard score
+        if hasattr(model, "predict"):
+            pred = model.predict(x_row.reshape(1, -1))[0]
+            return float(int(pred) == int(y_true))
+
+        # torch fallback (for environments where model is a torch module)
+        if hasattr(self.environment, "agent") and hasattr(self.environment.agent, "inference"):
+            out = self.environment.agent.inference(x_row).detach().cpu().numpy()
+            return float(out[0, int(y_true)])
+
+        raise RuntimeError("No compatible model interface for PGI.")
 
     def evaluate(self, X, y, feature_weights, k=3, is_abs=True, y_encode=None):
         """
@@ -65,8 +88,8 @@ class PGI:
         categorical_feature_inds = [feature_names.index(name) for name in self.environment.categorical_states]
         X_perturbed = get_normal_perturbed_inputs(X_perturbed, weights_ranks, categorical_feature_inds)
         for i in range(X.shape[0]):
-            y_pred = self.environment.agent.inference(X[i]).data.numpy()[0][int(y[i])]
-            perturbed_y_pred = self.environment.agent.inference(X_perturbed[i]).data.numpy()[0][int(y[i])]
+            y_pred = self._score_true_action(X[i], int(y[i]))
+            perturbed_y_pred = self._score_true_action(X_perturbed[i], int(y[i]))
             prediction_gap.append(np.abs(y_pred - perturbed_y_pred))
         return np.mean(prediction_gap)
 

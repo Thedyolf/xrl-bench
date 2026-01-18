@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from xrlbench.utils.perturbation import get_normal_perturbed_inputs
 
-
 class PGU:
     def __init__(self, environment, **kwargs):
         """
@@ -17,6 +16,28 @@ class PGU:
             The environment used for evaluating XRL methods.
         """
         self.environment = environment
+
+    def _score_true_action(self, X_row, y_true):
+        """Return model score/probability for the true action."""
+        model = self.environment.model
+
+        # sklearn/lightgbm path
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(X_row.reshape(1, -1))
+            return float(proba[0, int(y_true)])
+
+        # torch fallback (keeps old behavior)
+        if hasattr(self.environment, "agent") and hasattr(self.environment.agent, "inference"):
+            out = self.environment.agent.inference(X_row).data.numpy()
+            # out shape (1, n_actions)
+            return float(out[0, int(y_true)])
+
+        # last resort: hard agreement
+        if hasattr(model, "predict"):
+            pred = model.predict(X_row.reshape(1, -1))[0]
+            return float(int(pred) == int(y_true))
+
+        raise RuntimeError("No compatible model interface for PGI.")
 
     def evaluate(self, X, y, feature_weights, k=3, is_abs=True, y_encode=None):
         """
@@ -65,8 +86,8 @@ class PGU:
         categorical_feature_inds = [feature_names.index(name) for name in self.environment.categorical_states]
         X_perturbed = get_normal_perturbed_inputs(X_perturbed, weights_ranks, categorical_feature_inds)
         for i in range(X.shape[0]):
-            y_pred = self.environment.agent.inference(X[i]).data.numpy()[0][int(y[i])]
-            perturbed_y_pred = self.environment.agent.inference(X_perturbed[i]).data.numpy()[0][int(y[i])]
+            y_pred = self._score_true_action(X[i], y[i])
+            perturbed_y_pred = self._score_true_action(X_perturbed[i], int(y[i]))
             prediction_gap.append(np.abs(y_pred - perturbed_y_pred))
         return np.mean(prediction_gap)
 

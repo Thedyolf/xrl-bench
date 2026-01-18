@@ -37,7 +37,14 @@ class GradientSHAP:
         self.model = model
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         np.random.seed(42)
-        self.background = background if background else X.values[np.random.choice(X.shape[0], 100, replace=False)]
+        if background is not None:
+            self.background = background
+        else:
+            max_bg = 100
+            n_bg = min(max_bg, X.shape[0])
+            idx_bg = np.random.choice(X.shape[0], n_bg, replace=False)
+            self.background = X[idx_bg]
+
         self.explainer = shap.GradientExplainer(model, [torch.from_numpy(self.background).float().to(self.device)])
 
     def explain(self, X=None):

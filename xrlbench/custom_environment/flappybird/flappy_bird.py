@@ -9,7 +9,12 @@ import pandas as pd
 from collections import deque
 from d3rlpy.dataset import MDPDataset
 from xrlbench.custom_environment.flappybird.agent import Agent
+import joblib
+import os
 
+from xrlbench.custom_environment.flappybird.model import QNetwork
+
+PKL_PATH = os.path.join(".", "model", "FlappyBird.pkl")
 
 class FlappyBird:
     def __init__(self, env_id='FlappyBird-v0',  state_names=None, categorical_states=None):
@@ -49,7 +54,14 @@ class FlappyBird:
         Load model for the reinforcement learning agent.
         """
         try:
-            self.model.load_state_dict(torch.load(os.path.join(".", "model", "FlappyBird.pth"), map_location=self.device))
+            if os.path.exists(PKL_PATH):
+                self.model = joblib.load(PKL_PATH)
+                self.model_type = "tabular"
+            else:
+                # fall back to torch QNetwork + .pth logic
+                self.model = QNetwork(state_size=..., action_size=..., seed=...)
+                self.model_type = "torch"
+            #self.model.load_state_dict(torch.load(os.path.join(".", "model", "FlappyBird.pth"), map_location=self.device))
         except:
             print("This model is not existing, please train it.")
 

@@ -12,7 +12,9 @@ valid_metrics = {
     "imageAUM": xrlbench.custom_metrics.ImageAUM,
     "imagePGI": xrlbench.custom_metrics.ImagePGI,
     "imagePGU": xrlbench.custom_metrics.ImagePGU,
-    "imageRIS": xrlbench.custom_metrics.ImageRIS
+    "imageRIS": xrlbench.custom_metrics.ImageRIS,
+    "imageDeletionCurve": xrlbench.custom_metrics.ImageDeletionCurve,
+    "DeletionCurve": xrlbench.custom_metrics.DeletionCurve
 }
 
 

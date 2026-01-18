@@ -5,6 +5,18 @@ import pandas as pd
 import shap
 
 
+def _predict_actions(env, X):
+    model = env.model
+    # sklearn / lightgbm
+    if hasattr(model, "predict"):
+        y_hat = model.predict(X)
+        return y_hat.astype(int)
+    # torch fallback
+    import torch
+    with torch.no_grad():
+        out = model(torch.from_numpy(X).float())
+        return out.argmax(dim=1).cpu().numpy().astype(int)
+
 class AIM:
     def __init__(self, environment, **kwargs):
         """
@@ -61,7 +73,7 @@ class AIM:
         masked_X = X.copy()
         for i in range(X.shape[0]):
             masked_X[i][weights_ranks[i]] = 0
-        y_pred = [np.argmax(self.environment.agent.inference(masked_X[i]).data.numpy()) for i in range(masked_X.shape[0])]
+        y_pred = _predict_actions(self.environment, masked_X)
         accuracy = np.mean(y_pred == y)
         return accuracy
 
